@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>MC Mods Store</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+font-family:Arial;
+background:#eee;
+padding:20px;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+}
+
+input{
+width:100%;
+padding:12px;
+margin:5px 0;
+border-radius:15px;
+border:1px solid #ccc;
+}
+
+button{
+background:#20a84a;
+color:white;
+border:0;
+padding:12px 20px;
+border-radius:20px;
+margin:5px;
+}
+
+.card{
+background:white;
+padding:20px;
+margin-top:15px;
+border-radius:20px;
+}
+
+.hidden{
+display:none;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+<h1>MC Mods Store</h1>
+
+
+<h3 id="userText">
+Not logged in
+</h3>
+
+
+
+<input id="email" placeholder="Email">
+
+
+<input id="password" type="password" placeholder="Password">
+
+
+
+<button onclick="login()">
+Login
+</button>
+
+
+<button onclick="signup()">
+Sign Up
+</button>
+
+
+<button onclick="googleLogin()">
+Google
+</button>
+
+
+<button onclick="logout()">
+Sign Out
+</button>
+
+
+
+<hr>
+
+
+
+<button onclick="openCreate()">
+Create Mod
+</button>
+
+
+
+
+<div id="createBox" class="card hidden">
+
+
+<h2>Create Mod</h2>
+
+
+<input id="modName" placeholder="Mod Name">
+
+
+<input id="modVersion" placeholder="Minecraft Version">
+
+
+<input id="modFile" type="file">
+
+
+
+<button onclick="uploadMod()">
+Upload
+</button>
+
+
+</div>
+
+
+
+
+
+<div id="adminBox" class="card hidden">
+
+
+<h2>Admin Panel</h2>
+
+
+<div id="adminMods"></div>
+
+
+</div>
+
+
+
+
+<input id="search" placeholder="Search Mods">
+
+
+<div id="mods"></div>
+
+
+
+
+
+<script type="module">
+
+
+import { initializeApp }
+
+from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+
+
+import {
+
+getAuth,
+signInWithEmailAndPassword,
+createUserWithEmailAndPassword,
+GoogleAuthProvider,
+signInWithPopup,
+onAuthStateChanged,
+signOut
+
+}
+
+from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+
+import {
+
+getStorage,
+ref as storageRef,
+uploadBytes,
+getDownloadURL
+
+}
+
+from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+
+
+import {
+
+getDatabase,
+ref,
+push,
+set,
+onValue,
+remove
+
+}
+
+from
+
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+
+
+const firebaseConfig={
+
+
+apiKey:"AIzaSyBJzzyMQThw7-6DxiotLInRQmjkMlslins",
+
+authDomain:"mcmods67.firebaseapp.com",
+
+databaseURL:"https://mcmods67-default-rtdb.firebaseio.com",
+
+projectId:"mcmods67",
+
+storageBucket:"mcmods67.firebasestorage.app",
+
+messagingSenderId:"149993878640",
+
+appId:"1:149993878640:web:2d7e362daae19abc4e30b5",
+
+measurementId:"G-3NJRS2FBXW"
+
+
+};
+
+
+
+const app=initializeApp(firebaseConfig);
+
+
+const auth=getAuth(app);
+
+
+const storage=getStorage(app);
+
+
+const db=getDatabase(app);
+
+
+const provider=new GoogleAuthProvider();
+
+
+
+const ADMIN_UID=
+"hwuEu0kLJyU9HpPb5wy218ivZR93";
+  
+// LOGIN
+
+window.login=function(){
+
+signInWithEmailAndPassword(
+auth,
+email.value,
+password.value
+)
+
+.catch(e=>alert(e.message));
+
+};
+
+
+
+// SIGN UP
+
+window.signup=function(){
+
+createUserWithEmailAndPassword(
+auth,
+email.value,
+password.value
+)
+
+.catch(e=>alert(e.message));
+
+};
+
+
+
+
+// GOOGLE LOGIN
+
+window.googleLogin=function(){
+
+signInWithPopup(
+auth,
+provider
+)
+
+.catch(e=>alert(e.message));
+
+};
+
+
+
+
+// LOGOUT
+
+window.logout=function(){
+
+signOut(auth);
+
+};
+
+
+
+
+// OPEN CREATE BOX
+
+window.openCreate=function(){
+
+document.getElementById("createBox")
+.classList.remove("hidden");
+
+};
+
+
+
+
+
+let currentUser=null;
+
+
+
+onAuthStateChanged(auth,user=>{
+
+
+currentUser=user;
+
+
+
+if(user){
+
+
+document.getElementById("userText").innerHTML=
+"Logged in: "+user.email;
+
+
+
+if(user.uid===ADMIN_UID){
+
+
+document.getElementById("adminBox")
+.classList.remove("hidden");
+
+
+loadAdmin();
+
+
+}
+
+
+}
+
+else{
+
+
+document.getElementById("userText").innerHTML=
+"Not logged in";
+
+
+document.getElementById("createBox")
+.classList.add("hidden");
+
+
+document.getElementById("adminBox")
+.classList.add("hidden");
+
+
+}
+
+
+});
+
+
+
+
+
+
+// LOAD INDEX.JSON
+
+
+let mods=[];
+
+
+
+fetch("Index.json")
+
+.then(r=>r.json())
+
+.then(data=>{
+
+
+mods=data;
+
+showMods(mods);
+
+
+})
+
+.catch(()=>{
+
+
+document.getElementById("mods").innerHTML=
+"Index.json failed";
+
+
+});
+
+
+
+
+
+
+
+function showMods(list){
+
+
+let box=
+document.getElementById("mods");
+
+
+box.innerHTML="";
+
+
+
+list.forEach(mod=>{
+
+
+box.innerHTML+=`
+
+
+<div class="card">
+
+
+<h2>${mod.name}</h2>
+
+
+<p>
+Creator: ${mod.creator}
+</p>
+
+
+<p>
+Version: ${mod.minecraftVersion}
+</p>
+
+
+<a href="${mod.download}" download>
+
+<button>
+Download
+</button>
+
+</a>
+
+
+
+</div>
+
+
+`;
+
+
+
+});
+
+
+}
+
+
+
+
+
+
+
+// SEARCH
+
+
+search.oninput=function(){
+
+
+let text=
+search.value.toLowerCase();
+
+
+
+showMods(
+
+mods.filter(mod=>
+
+mod.name.toLowerCase()
+.includes(text)
+
+)
+
+);
+
+
+};
+
+
+
+
+
+
+// UPLOAD MOD
+
+
+window.uploadMod=async function(){
+
+
+if(!currentUser){
+
+alert("Login first");
+
+return;
+
+}
+
+
+
+let file=
+document.getElementById("modFile").files[0];
+
+
+
+let name=
+document.getElementById("modName").value;
+
+
+
+let version=
+document.getElementById("modVersion").value;
+
+
+
+
+if(!file || !name || !version){
+
+alert("Fill all fields");
+
+return;
+
+}
+
+
+
+
+let filePath=
+"mods/"+Date.now()+"_"+file.name;
+
+
+
+let fileRef=
+storageRef(storage,filePath);
+
+
+
+await uploadBytes(
+fileRef,
+file
+);
+
+
+
+let url=
+await getDownloadURL(fileRef);
+
+
+
+
+
+let newRef=
+push(ref(db,"uploadedMods"));
+
+
+
+await set(newRef,{
+
+name:name,
+
+version:version,
+
+file:file.name,
+
+download:url,
+
+creator:currentUser.email,
+
+uid:currentUser.uid
+
+});
+
+
+
+alert("Uploaded!");
+
+
+
+};
+  
+// ADMIN VIEW UPLOADED MODS
+
+window.loadAdmin=function(){
+
+
+onValue(
+
+ref(db,"uploadedMods"),
+
+snapshot=>{
+
+
+let box =
+document.getElementById("adminMods");
+
+
+box.innerHTML="";
+
+
+
+snapshot.forEach(item=>{
+
+
+let mod=item.val();
+
+let id=item.key;
+
+
+
+box.innerHTML += `
+
+
+<div class="card">
+
+
+<h3>${mod.name}</h3>
+
+
+<p>
+Version: ${mod.version}
+</p>
+
+
+<p>
+File: ${mod.file}
+</p>
+
+
+<p>
+Creator: ${mod.creator}
+</p>
+
+
+
+<a href="${mod.download}" target="_blank">
+
+Open
+
+</a>
+
+
+
+<br>
+
+
+<button onclick="deleteMod('${id}')">
+
+Delete
+
+</button>
+
+
+</div>
+
+
+`;
+
+
+
+});
+
+
+}
+
+
+);
+
+
+};
+
+
+
+
+
+
+// DELETE MOD
+
+window.deleteMod=async function(id){
+
+
+let ok=
+confirm("Delete this mod?");
+
+
+if(!ok){
+
+return;
+
+}
+
+
+
+await remove(
+
+ref(db,"uploadedMods/"+id)
+
+);
+
+
+
+alert("Deleted");
+
+
+};
+
+
+
+
+
+</script>
+
+
+</div>
+
+
+</body>
+
+</html>
